@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="fo">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Figgjarstatus</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --blue:#2563eb;--blue-dark:#1d4ed8;--navy:#0f172a;
+  --green:#16a34a;--green-bg:#f0fdf4;--green-border:#bbf7d0;
+  --red:#dc2626;--red-bg:#fef2f2;
+  --amber:#d97706;--amber-bg:#fffbeb;
+  --gray-50:#f9fafb;--gray-100:#f3f4f6;--gray-200:#e5e7eb;
+  --gray-400:#9ca3af;--gray-600:#4b5563;--gray-800:#1f2937;--gray-900:#111827;
+  --radius:8px;--shadow:0 1px 3px rgba(0,0,0,0.08)
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;color:var(--gray-800);background:var(--gray-50);min-height:100vh}
+header{background:var(--navy);padding:0 24px;height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.logo{width:36px;height:36px;background:var(--blue);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;color:white;margin-right:12px}
+.hl{display:flex;align-items:center}
+.ht h1{font-size:16px;font-weight:600;color:white}.ht p{font-size:12px;color:rgba(255,255,255,0.5)}
+.hdr-right{display:flex;align-items:center;gap:8px}
+.btn-hdr{background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:white;padding:7px 14px;border-radius:var(--radius);font-size:13px;cursor:pointer}
+.btn-hdr:hover{background:rgba(255,255,255,0.18)}
+main{max-width:1200px;margin:0 auto;padding:24px}
+.card{background:white;border:1px solid var(--gray-200);border-radius:var(--radius);padding:18px 20px;margin-bottom:16px;box-shadow:var(--shadow)}
+
+/* Config */
+.cfg-row{display:flex;gap:10px}
+.cfg-row input{flex:1;height:36px;border:1px solid var(--gray-200);border-radius:var(--radius);padding:0 10px;font-size:13px;outline:none}
+.cfg-note{font-size:12px;color:var(--gray-400);margin-top:8px}
+
+/* Tabs */
+.main-tabs{display:flex;gap:2px;border-bottom:1px solid var(--gray-200);margin-bottom:20px}
+.main-tab{padding:10px 18px;font-size:14px;font-weight:500;color:var(--gray-600);cursor:pointer;border-bottom:2px solid transparent;background:none;border-top:none;border-left:none;border-right:none;display:flex;align-items:center;gap:6px}
+.main-tab:hover{color:var(--gray-800)}
+.main-tab.active{color:var(--blue);border-bottom-color:var(--blue)}
+
+/* Filter */
+.filter-row{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap}
+.fg{display:flex;flex-direction:column;gap:4px}
+.fg label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-600)}
+.fg input[type=date],.fg select{height:36px;border:1px solid var(--gray-200);border-radius:var(--radius);padding:0 10px;font-size:13px;color:var(--gray-800);background:white;outline:none}
+.quick-btns{display:flex;gap:6px;flex-wrap:wrap}
+.bq{height:36px;padding:0 12px;border:1px solid var(--gray-200);border-radius:var(--radius);background:white;font-size:13px;color:var(--gray-600);cursor:pointer;white-space:nowrap}
+.bq:hover{background:var(--gray-50)}.bq.active{background:var(--gray-100);font-weight:500;color:var(--gray-800);border-color:var(--gray-400)}
+.bp{height:36px;padding:0 18px;background:var(--blue);color:white;border:none;border-radius:var(--radius);font-size:14px;font-weight:500;cursor:pointer;white-space:nowrap}
+.bp:hover{background:var(--blue-dark)}.bp:disabled{opacity:.6;cursor:not-allowed}
+.cmp-row{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;color:var(--gray-600)}
+.toggle{position:relative;width:34px;height:20px;background:var(--gray-200);border-radius:10px;cursor:pointer;transition:background .2s;flex-shrink:0}
+.toggle.on{background:var(--blue)}.toggle::after{content:'';position:absolute;top:3px;left:3px;width:14px;height:14px;background:white;border-radius:50%;transition:transform .2s}
+.toggle.on::after{transform:translateX(14px)}
+
+/* Banner */
+.banner{border-radius:var(--radius);padding:12px 16px;margin-bottom:16px;font-size:13px;display:none}
+.banner.success{background:var(--green-bg);border:1px solid var(--green-border);color:var(--green);display:flex;align-items:center;gap:8px}
+.banner.error{background:var(--red-bg);border:1px solid #fecaca;color:var(--red);display:block}
+.banner.loading{background:#eff6ff;border:1px solid #bfdbfe;color:var(--blue);display:block}
+
+/* KPI */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:white;border:1px solid var(--gray-200);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow)}
+.kpi-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--gray-400);margin-bottom:6px}
+.kpi-value{font-size:22px;font-weight:700;color:var(--gray-900);letter-spacing:-.02em;line-height:1.2}
+.kpi-sub{font-size:12px;margin-top:4px}.kpi-sub.up{color:var(--green)}.kpi-sub.down{color:var(--red)}.kpi-sub.neutral{color:var(--gray-400)}
+
+/* Hero result box */
+.hero-box{background:var(--navy);border-radius:var(--radius);padding:24px 28px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px}
+.hero-label{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,0.5);margin-bottom:6px}
+.hero-value{font-size:42px;font-weight:800;color:white;letter-spacing:-.03em;line-height:1}
+.hero-sub{font-size:13px;margin-top:8px;display:flex;align-items:center;gap:8px}
+.hero-sub .up{color:#4ade80}.hero-sub .down{color:#f87171}
+.hero-right{text-align:right}
+.hero-narrative{max-width:420px;font-size:13px;color:rgba(255,255,255,0.75);line-height:1.6}
+.hero-narrative strong{color:white}
+.hero-narrative .pos{color:#4ade80}.hero-narrative .neg{color:#f87171}
+
+/* Two col */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+@media(max-width:800px){.two-col{grid-template-columns:1fr}}
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px}
+@media(max-width:900px){.three-col{grid-template-columns:1fr}}
+
+/* Section header */
+.sh{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.st{font-size:14px;font-weight:600;color:var(--gray-800)}
+.st-sub{font-size:12px;color:var(--gray-400);margin-top:2px}
+.sc{font-size:12px;color:var(--gray-400);background:var(--gray-100);padding:2px 8px;border-radius:20px}
+
+/* Tables */
+.table-wrap{border:1px solid var(--gray-200);border-radius:var(--radius);overflow:hidden}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{background:var(--gray-50);padding:9px 12px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-600);border-bottom:1px solid var(--gray-200);white-space:nowrap;cursor:pointer}
+thead th:hover{background:var(--gray-100)}
+tbody td{padding:10px 12px;border-bottom:1px solid var(--gray-100);color:var(--gray-800)}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:var(--gray-50)}
+tfoot td{padding:10px 12px;background:var(--navy);color:white;font-weight:600;font-size:13px}
+.tr{text-align:right}.mono{font-family:monospace;font-size:12px}
+.pos{color:var(--green)}.neg{color:var(--red)}
+
+/* Rakstraruppgerð */
+.ru-row{display:flex;align-items:center;padding:9px 12px;border-bottom:1px solid var(--gray-100);font-size:13px;cursor:pointer}
+.ru-row:hover{background:var(--gray-50)}
+.ru-row.group{font-weight:600;background:var(--gray-50)}
+.ru-row.total{font-weight:700;background:var(--navy);color:white;cursor:default}
+.ru-row.total:hover{background:var(--navy)}
+.ru-name{flex:1;display:flex;align-items:center;gap:8px}
+.ru-expand{color:var(--gray-400);font-size:10px;width:12px}
+.ru-curr{width:150px;text-align:right;font-family:monospace}
+.ru-prev{width:150px;text-align:right;font-family:monospace;color:var(--gray-400)}
+.ru-diff{width:120px;text-align:right;font-family:monospace}
+.ru-pct{width:80px;text-align:right;font-family:monospace}
+.ru-sub{display:none;background:#fafafa}
+.ru-sub .ru-row{padding-left:32px;font-size:12px;color:var(--gray-600)}
+
+/* Progress bar */
+.prog-wrap{width:100%;background:var(--gray-100);border-radius:4px;height:5px;margin-top:3px}
+.prog{height:5px;border-radius:4px;background:var(--blue)}
+.prog.red{background:var(--red)}
+
+/* Badge */
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:500}
+.badge-red{background:var(--red-bg);color:var(--red)}
+.badge-amber{background:var(--amber-bg);color:var(--amber)}
+.badge-green{background:var(--green-bg);color:var(--green)}
+.badge-gray{background:var(--gray-100);color:var(--gray-600)}
+
+/* Chart canvas */
+.chart-wrap{position:relative;height:200px}
+.chart-wrap.tall{height:260px}
+
+/* Inline bar */
+.ibar{display:inline-block;height:8px;border-radius:2px;background:var(--green);vertical-align:middle;margin-right:6px}
+.ibar.red{background:var(--red)}
+
+@media print{header,.card:first-child,.main-tabs{display:none!important}main{padding:0}}
+@media(max-width:600px){main{padding:12px}.kpi-grid{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<header>
+  <div class="hl">
+    <div class="logo">€</div>
+    <div class="ht"><h1 id="hdrTitle">Figgjarstatus</h1><p id="hdrPeriod">E-conomic Frágreiðing</p></div>
+  </div>
+  <div class="hdr-right">
+    <button class="btn-hdr" onclick="window.print()">⎙ Printa / PDF</button>
+  </div>
+</header>
+<main>
+
+<!-- Config -->
+<div class="card" id="cfg">
+  <div style="font-size:13px;font-weight:600;margin-bottom:10px">Worker URL</div>
+  <div class="cfg-row">
+    <input id="wurl" type="text" placeholder="https://figgjarstatus.tjarnir.workers.dev"/>
+    <button class="bp" onclick="saveCfg()">Goym</button>
+  </div>
+  <p class="cfg-note">Tokeninar eru í Cloudflare Secrets.</p>
+</div>
+
+<!-- Filter -->
+<div class="card">
+  <div class="filter-row">
+    <div class="fg"><label>Frá dagfesting</label><input type="date" id="df"/></div>
+    <div class="fg"><label>Til dagfesting</label><input type="date" id="dt"/></div>
+    <div class="fg"><label>Samanber við</label>
+      <select id="cmpSel">
+        <option value="">Einki samanberð</option>
+        <option value="prev-year" selected>Sama tíðarskeið í fjør</option>
+      </select>
+    </div>
+    <div class="fg"><label>Skjótval</label>
+      <div class="quick-btns">
+        <button class="bq" onclick="setQ('ytd')" id="q-ytd">ÁTD</button>
+        <button class="bq" onclick="setQ('lm')" id="q-lm">Seinasti mør.</button>
+        <button class="bq" onclick="setQ('lq')" id="q-lq">Hendan ársfjórðingin</button>
+        <button class="bq" onclick="setQ('ly')" id="q-ly">Í fjør</button>
+      </div>
+    </div>
+    <button class="bp" id="fetchBtn" onclick="fetchAll()">Heinta dátur</button>
+  </div>
+</div>
+
+<div class="banner" id="banner"></div>
+
+<!-- Main tabs -->
+<div class="main-tabs" id="mainTabs" style="display:none">
+  <button class="main-tab active" onclick="showPage('yvirlit')">📊 Yvirlit</button>
+  <button class="main-tab" onclick="showPage('sola')">💰 Søla</button>
+  <button class="main-tab" onclick="showPage('keyp')">🛒 Keyp</button>
+</div>
+
+<!-- ===== YVIRLIT ===== -->
+<div id="page-yvirlit" style="display:none">
+
+  <div class="hero-box" id="heroBox">
+    <div>
+      <div class="hero-label">Úrslit ádrenn skatt</div>
+      <div class="hero-value" id="heroValue">–</div>
+      <div class="hero-sub" id="heroSub"></div>
+    </div>
+    <div class="hero-right">
+      <div class="hero-narrative" id="heroNarrative"></div>
+    </div>
+  </div>
+
+  <!-- Dekkingsávlop + Líkviditetur -->
+  <div class="two-col">
+    <div class="card">
+      <div class="sh">
+        <div><div class="st">Dekkingsávlop</div><div class="st-sub">Søla – Beinleiðis kostnaður — mánaðarlig broyting</div></div>
+      </div>
+      <div style="margin-bottom:12px">
+        <div style="font-size:11px;color:var(--gray-400);margin-bottom:4px">SALDO NÚ</div>
+        <div style="font-size:28px;font-weight:700;color:var(--gray-900)" id="covVal">–</div>
+        <div style="font-size:12px;color:var(--gray-600);margin-top:4px" id="covSub"></div>
+      </div>
+      <div class="chart-wrap"><canvas id="covChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="sh">
+        <div><div class="st">Likviditetur</div><div class="st-sub">Saldo á bankakontoum og kassakrediti</div></div>
+      </div>
+      <div style="margin-bottom:12px">
+        <div style="font-size:11px;color:var(--gray-400);margin-bottom:4px">NETTO LIKVIDITETUR NÚ</div>
+        <div style="font-size:28px;font-weight:700;color:var(--gray-900)" id="liqVal">–</div>
+      </div>
+      <div id="bankList" style="margin-bottom:12px"></div>
+      <div class="chart-wrap"><canvas id="liqChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Úrslit gjøgnum tíðina -->
+  <div class="card">
+    <div class="sh">
+      <div><div class="st">Úrslit gjøgnum tíðina</div><div class="st-sub" id="resultSub">Mánaðarlig broyting</div></div>
+    </div>
+    <div class="chart-wrap tall"><canvas id="resultChart"></canvas></div>
+  </div>
+
+  <!-- KPI row -->
+  <div class="kpi-grid" id="kpiGrid">
+    <div class="kpi"><div class="kpi-label">Søla</div><div class="kpi-value" id="kSola">–</div><div class="kpi-sub neutral" id="kSolaS"></div></div>
+    <div class="kpi"><div class="kpi-label">Rentuinntøkur</div><div class="kpi-value" id="kRentu">–</div><div class="kpi-sub neutral" id="kRentuS"></div></div>
+    <div class="kpi"><div class="kpi-label">Lønir</div><div class="kpi-value" id="kLon">–</div><div class="kpi-sub neutral" id="kLonS"></div></div>
+    <div class="kpi"><div class="kpi-label">Beinleiðis kostnaður</div><div class="kpi-value" id="kBein">–</div><div class="kpi-sub neutral" id="kBeinS"></div></div>
+    <div class="kpi"><div class="kpi-label">Aðrar útreiðslur</div><div class="kpi-value" id="kAdrar">–</div><div class="kpi-sub neutral" id="kAdrarS"></div></div>
+    <div class="kpi"><div class="kpi-label">Avskrivingar</div><div class="kpi-value" id="kAvskr">–</div><div class="kpi-sub neutral" id="kAvskrS"></div></div>
+  </div>
+
+  <!-- Rakstraruppgerð -->
+  <div class="card">
+    <div class="sh">
+      <div><div class="st">Rakstraruppgerð</div><div class="st-sub">Trýst á eina línju fyri at síggja undirliggjandi konto og bókingar</div></div>
+    </div>
+    <!-- Filter chips -->
+    <div id="ruChips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"></div>
+    <!-- Headers -->
+    <div style="display:flex;padding:6px 12px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-400);border-bottom:1px solid var(--gray-200)">
+      <div style="flex:1">BÓLKUR</div>
+      <div style="width:150px;text-align:right">TÍÐARSKEIÐ (T.KR.)</div>
+      <div style="width:150px;text-align:right">UNDANFARNA ÁR (T.KR.)</div>
+      <div style="width:120px;text-align:right">MUNUR (T.KR.)</div>
+      <div style="width:80px;text-align:right">%</div>
+    </div>
+    <div id="ruTable"></div>
+  </div>
+
+  <!-- Mánaðar-yvirlit -->
+  <div class="card">
+    <div class="sh">
+      <div><div class="st">Mánaðar-yvirlit</div><div class="st-sub">Trýst á yvirskrift fyri at sortera</div></div>
+    </div>
+    <div class="table-wrap">
+      <table id="monthTable">
+        <thead><tr id="monthHead"></tr></thead>
+        <tbody id="monthBody"></tbody>
+        <tfoot><tr id="monthFoot"></tr></tfoot>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /yvirlit -->
+
+<!-- ===== SØLA ===== -->
+<div id="page-sola" style="display:none">
+
+  <div class="kpi-grid">
+    <div class="kpi"><div class="kpi-label">Fakturað tilsamans (við MVG)</div><div class="kpi-value" id="sFakt">–</div></div>
+    <div class="kpi"><div class="kpi-label">Tal av kundum</div><div class="kpi-value" id="sCus">–</div></div>
+    <div class="kpi"><div class="kpi-label">Størstur kundin</div><div class="kpi-value" id="sBig">–</div></div>
+    <div class="kpi"><div class="kpi-label">Miðal pr. kunda</div><div class="kpi-value" id="sAvg">–</div></div>
+    <div class="kpi"><div class="kpi-label">Tal av faktururum</div><div class="kpi-value" id="sInvCnt">–</div></div>
+  </div>
+
+  <div class="card">
+    <div class="sh"><div><div class="st">Rokna pr. mánaði (við MVG)</div><div class="st-sub">Grundað á kundafaktura í valda tíðarskeiðinum</div></div></div>
+    <div class="chart-wrap tall"><canvas id="solaChart"></canvas></div>
+    <div style="display:flex;gap:24px;margin-top:12px;font-size:12px;color:var(--gray-600)">
+      <div><span style="font-weight:600">TOTAL SØLA</span> <span id="sTotSola">–</span></div>
+      <div><span style="font-weight:600">MIÐAL PR. MÁNAÐI</span> <span id="sAvgMon">–</span></div>
+      <div><span style="font-weight:600">TAL AV MÁNAÐUM</span> <span id="sMonCnt">–</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="sh"><div><div class="st">Top kundar — faktura-uppnæmd</div><div class="st-sub">Top 20 kundar raðaðir eftir samlaðum rokningum (við MVG)</div></div></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>Kundi</th><th class="tr">Tal av faktururum</th><th class="tr">Søla (t.kr.)</th><th class="tr">Lutfall</th></tr></thead>
+        <tbody id="topCusBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="sh"><div><div class="st">Skuldarar</div><div class="st-sub">Saldo pr. dags dato (NÚ) — ikki pr. enda dagfesting í tíðarskeiðinum</div></div></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>Kundi</th><th class="tr">Saldo (kr.)</th></tr></thead>
+        <tbody id="debtorBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /sola -->
+
+<!-- ===== KEYP ===== -->
+<div id="page-keyp" style="display:none">
+
+  <div class="kpi-grid">
+    <div class="kpi"><div class="kpi-label">Innkeyp tilsamans (við MVG)</div><div class="kpi-value" id="kInnkeyp">–</div></div>
+    <div class="kpi"><div class="kpi-label">Tal av veitarum</div><div class="kpi-value" id="kVeit">–</div></div>
+    <div class="kpi"><div class="kpi-label">Størstur veitari</div><div class="kpi-value" id="kBigV">–</div></div>
+    <div class="kpi"><div class="kpi-label">Miðal pr. veitara</div><div class="kpi-value" id="kAvgV">–</div></div>
+    <div class="kpi"><div class="kpi-label">Tal av faktururum</div><div class="kpi-value" id="kVFakt">–</div></div>
+  </div>
+
+  <div class="card">
+    <div class="sh"><div><div class="st">Innkeyp pr. mánaði (við MVG)</div><div class="st-sub">Grundað á veitarafaktura í valda tíðarskeiðinum</div></div></div>
+    <div class="chart-wrap tall"><canvas id="keypChart"></canvas></div>
+    <div style="display:flex;gap:24px;margin-top:12px;font-size:12px;color:var(--gray-600)">
+      <div><span style="font-weight:600">TOTAL INNKEYP</span> <span id="kTotKeyp">–</span></div>
+      <div><span style="font-weight:600">MIÐAL PR. MÁNAÐI</span> <span id="kAvgMon">–</span></div>
+      <div><span style="font-weight:600">TAL AV MÁNAÐUM</span> <span id="kMonCnt">–</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="sh"><div><div class="st">Top veitarar — innkeyp</div><div class="st-sub">Top 20 veitarar raðaðir eftir samlaðum innkeypi (við MVG)</div></div></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>Veitari</th><th class="tr">Tal av faktururum</th><th class="tr">Innkeyp (t.kr.)</th><th class="tr">Lutfall</th></tr></thead>
+        <tbody id="topVeitBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /keyp -->
+
+</main>
+
+<script>
+// ─── STATE ────────────────────────────────────────────────
+const S = {
+  url: localStorage.getItem('wurl')||'',
+  cmp: true,
+  from: '', to: '',
+  inv: [], prevInv: [],
+  sup: [], prevSup: [],
+  cus: [],
+  accounts: [],
+  charts: {},
+  currentPage: 'yvirlit',
+};
+
+// ─── INIT ─────────────────────────────────────────────────
+(function(){
+  const n = new Date(), y = n.getFullYear();
+  document.getElementById('df').value = y+'-01-01';
+  document.getElementById('dt').value = n.toISOString().split('T')[0];
+  if(S.url){ document.getElementById('wurl').value=S.url; document.getElementById('cfg').style.display='none'; }
+})();
+
+function saveCfg(){
+  const u=document.getElementById('wurl').value.trim().replace(/\/$/,'');
+  if(!u)return;
+  S.url=u; localStorage.setItem('wurl',u);
+  document.getElementById('cfg').style.display='none';
+  fetchAll();
+}
+
+function setQ(t){
+  document.querySelectorAll('.bq').forEach(b=>b.classList.remove('active'));
+  const n=new Date(),y=n.getFullYear(),m=n.getMonth(); let f,to;
+  if(t==='ytd'){f=y+'-01-01';to=n.toISOString().split('T')[0];document.getElementById('q-ytd').classList.add('active')}
+  else if(t==='lm'){f=new Date(y,m-1,1).toISOString().split('T')[0];to=new Date(y,m,0).toISOString().split('T')[0];document.getElementById('q-lm').classList.add('active')}
+  else if(t==='lq'){const q=Math.floor(m/3);f=new Date(y,q*3,1).toISOString().split('T')[0];to=new Date(y,q*3+3,0).toISOString().split('T')[0];document.getElementById('q-lq').classList.add('active')}
+  else if(t==='ly'){f=(y-1)+'-01-01';to=(y-1)+'-12-31';document.getElementById('q-ly').classList.add('active')}
+  document.getElementById('df').value=f; document.getElementById('dt').value=to;
+}
+
+function showPage(name){
+  S.currentPage = name;
+  ['yvirlit','sola','keyp'].forEach(p=>{ document.getElementById('page-'+p).style.display = p===name?'block':'none'; });
+  document.querySelectorAll('.main-tab').forEach((el,i)=>{ el.classList.toggle('active',['yvirlit','sola','keyp'][i]===name); });
+}
+
+// ─── FETCH ────────────────────────────────────────────────
+async function fetchAll(){
+  if(!S.url){ document.getElementById('cfg').style.display='block'; showB('Set Worker URL fyrst.','error'); return; }
+  S.from = document.getElementById('df').value;
+  S.to = document.getElementById('dt').value;
+  S.cmp = document.getElementById('cmpSel').value === 'prev-year';
+
+  document.getElementById('fetchBtn').disabled=true;
+  showB('Heintir dátur frá e-conomic…','loading');
+
+  try {
+    const [ir, sr, cr, acR] = await Promise.all([
+      api(`invoices-period?from=${S.from}&to=${S.to}&compare=${S.cmp}`),
+      api(`supplier-invoices?from=${S.from}&to=${S.to}&compare=${S.cmp}`),
+      api('customers'),
+      api('accounts'),
+    ]);
+
+    S.inv = ir.current?.collection || [];
+    S.prevInv = S.cmp ? (ir.previous?.collection||[]) : [];
+    S.sup = sr.collection || [];
+    S.prevSup = S.cmp ? (sr.previous||[]) : [];
+    S.cus = cr.collection || [];
+    S.accounts = acR.collection || [];
+
+    // Customer name map
+    const cMap = {};
+    S.cus.forEach(c=>{ cMap[c.customerNumber]=c; });
+    S.inv.forEach(i=>{ if(i.customer?.customerNumber) i._cus = cMap[i.customer.customerNumber]; });
+
+    // Update header
+    document.getElementById('hdrPeriod').textContent = S.from + ' → ' + S.to;
+    document.getElementById('mainTabs').style.display='flex';
+
+    renderYvirlit();
+    renderSola();
+    renderKeyp();
+    showPage(S.currentPage);
+
+    const total = S.inv.length + S.sup.length;
+    const unmapped = S.inv.filter(i=>!i._cus).length;
+    showB(`✓ ${total} bókingar heintaðar${unmapped?' ('+unmapped+' bókingar á kontum uttan kortlegging eru úttigar)':''}`, 'success');
+
+  } catch(e){ showB('Villa: '+e.message,'error'); console.error(e); }
+  finally{ document.getElementById('fetchBtn').disabled=false; }
+}
+
+// ─── YVIRLIT ──────────────────────────────────────────────
+function renderYvirlit(){
+  // Classify accounts
+  const acc = {};
+  S.accounts.forEach(a=>{ acc[a.accountNumber] = a; });
+
+  // Sum invoices by month
+  const months = getMonths(S.from, S.to);
+
+  // Revenue from invoices (netAmount = excl MVG)
+  const solaByMon = {}; months.forEach(m=>solaByMon[m]=0);
+  S.inv.forEach(i=>{ const k=i.date?.substring(0,7); if(solaByMon[k]!==undefined) solaByMon[k]+=(i.netAmountInBaseCurrency||0); });
+  const prevSolaByMon = {}; months.forEach(m=>prevSolaByMon[m]=0);
+  S.prevInv.forEach(i=>{ const k=shifted(i.date?.substring(0,7)); if(prevSolaByMon[k]!==undefined) prevSolaByMon[k]+=(i.netAmountInBaseCurrency||0); });
+
+  // Costs from supplier invoices
+  const supByMon = {}; months.forEach(m=>supByMon[m]=0);
+  S.sup.forEach(i=>{ const k=i.date?.substring(0,7); if(supByMon[k]!==undefined) supByMon[k]+=(i.netAmountInBaseCurrency||i.netAmount||0); });
+
+  const totalSola = Object.values(solaByMon).reduce((s,v)=>s+v,0);
+  const totalSup = Object.values(supByMon).reduce((s,v)=>s+v,0);
+  const prevTotalSola = Object.values(prevSolaByMon).reduce((s,v)=>s+v,0);
+
+  // For rakstraruppgerð we use account groups
+  // Group accounts by type
+  const GROUPS = {
+    'Søla': a => a.accountNumber >= 1000 && a.accountNumber < 3000,
+    'Rentuinntøkur': a => a.accountNumber >= 7000 && a.accountNumber < 7500,
+    'Lønir': a => a.accountNumber >= 3000 && a.accountNumber < 3500,
+    'Beinleiðis kostnaður': a => a.accountNumber >= 3500 && a.accountNumber < 5000,
+    'Aðrar uttanhýsis útreiðslur': a => a.accountNumber >= 5000 && a.accountNumber < 7000,
+    'Avskrivingar': a => a.accountNumber >= 7500 && a.accountNumber < 8000,
+    'Rentuútreiðslur': a => a.accountNumber >= 8000 && a.accountNumber < 8500,
+    'Skattur': a => a.accountNumber >= 8500 && a.accountNumber < 9000,
+  };
+
+  // Use invoice data for sales, supplier for costs
+  const sola = totalSola;
+  const prevSola = prevTotalSola;
+
+  // Estimate from supplier invoices by category (simplified)
+  const lonir = S.sup.filter(i=>i.supplier?.name?.toLowerCase().includes('løn')||false).reduce((s,i)=>s+(i.netAmountInBaseCurrency||i.netAmount||0),0);
+  const totalCosts = totalSup;
+  const result = sola - totalCosts;
+  const prevResult = prevSola - (S.prevSup?.reduce?.((s,i)=>s+(i.netAmountInBaseCurrency||i.netAmount||0),0)||0);
+
+  // Hero box
+  document.getElementById('heroValue').textContent = fmtK(result);
+  const heroSub = document.getElementById('heroSub');
+  if(S.cmp && prevResult !== 0){
+    const diff = result - prevResult;
+    const pct = (diff/Math.abs(prevResult)*100).toFixed(1);
+    const up = diff >= 0;
+    heroSub.innerHTML = `<span class="${up?'up':'down'}">${up?'↑':'↓'}${fmtK(Math.abs(diff))} (${up?'+':''}${pct} %)</span> <span style="color:rgba(255,255,255,0.5)">vs. undanfarna ár</span>`;
+  }
+
+  // Narrative
+  const months_label = document.getElementById('df').value.substring(0,7).replace('-','/')+ ' – ' + document.getElementById('dt').value.substring(0,7).replace('-','/');
+  const resultSign = result >= 0 ? 'yvirskot' : 'tapstak';
+  const diff = result - prevResult;
+  const pctStr = prevResult !== 0 ? Math.abs((diff/Math.abs(prevResult)*100)).toFixed(0) : '';
+  document.getElementById('heroNarrative').innerHTML = `
+    <strong>${months.length > 1 ? months[0].substring(0,4) : ''} ${getMonthRange(S.from,S.to)}</strong> vísir eitt
+    <strong>${resultSign} uppá ${fmtK(result)}</strong>.
+    ${S.cmp && prevResult !== 0 ? `Tað er <strong class="${diff>=0?'pos':'neg'}">${fmtK(Math.abs(diff))} betri</strong> (${pctStr} % betri) enn undanfarna ár.` : ''}
+    Úrslitsstigið er <strong>${sola>0?(sola>0?(result/sola*100).toFixed(1):0):0} %</strong> av sølu á ${fmtK(sola)}.
+    Størstur útreiðslubólkurin er <strong>Kostnaður</strong> við ${fmtK(totalCosts)} kr.
+    (${sola>0?(totalCosts/sola*100).toFixed(0):0} % av útreiðslunum)${S.cmp && prevResult !== 0 ? ` — <span class="${diff>=0?'pos':'neg'}">${diff>=0?'+':''} ${pctStr} % samanborið við undanfarna ár</span>` : ''}.`;
+
+  // KPIs
+  setCmp2('kSola','kSolaS', sola, prevSola, true);
+  document.getElementById('kRentu').textContent = '–';
+  document.getElementById('kLon').textContent = fmtK(lonir)||'–';
+  setCmp2('kBein','kBeinS', totalSup, S.prevSup?.reduce?.((s,i)=>s+(i.netAmountInBaseCurrency||i.netAmount||0),0)||0, false);
+  document.getElementById('kAdrar').textContent = '–';
+  document.getElementById('kAvskr').textContent = '–';
+
+  // Coverage chart
+  const covData = months.map(m => solaByMon[m] - supByMon[m]);
+  const covNow = covData.reduce((s,v)=>s+v,0);
+  document.getElementById('covVal').textContent = fmtK(covNow);
+  const covPct = sola > 0 ? (covNow/sola*100).toFixed(1) : 0;
+  document.getElementById('covSub').innerHTML = `Dekkingstigið: <strong>${covPct} %</strong>`;
+  renderLineChart('covChart', months, [{label:'Dekkingsávlop',data:covData,color:'#16a34a',fill:true}]);
+
+  // Result chart
+  const resultData = months.map(m => solaByMon[m] - supByMon[m]);
+  const prevResultData = months.map(m => (prevSolaByMon[m]||0));
+  const datasets = [
+    {label:'Inntøkur',data:months.map(m=>solaByMon[m]),color:'#16a34a',fill:false},
+    {label:'Kostnaður',data:months.map(m=>supByMon[m]),color:'#f59e0b',fill:false},
+    {label:'Úrslit',data:resultData,color:'#2563eb',fill:false},
+  ];
+  if(S.cmp) datasets.push({label:'Inntøkur (fjør)',data:months.map(m=>prevSolaByMon[m]||0),color:'#dc2626',fill:false,dashed:true});
+  document.getElementById('resultSub').textContent = `Mánaðarlig broyting — ${S.from} → ${S.to}`;
+  renderLineChart('resultChart', months, datasets);
+
+  // Liquidity (use invoice balance as proxy)
+  const outstanding = S.inv.filter(i=>!i.paymentDate&&(i.remainder>0||i.remainder==null));
+  const outAmt = outstanding.reduce((s,i)=>s+(i.remainder||i.grossAmountInBaseCurrency||0),0);
+  document.getElementById('liqVal').textContent = fmtK(outAmt);
+  document.getElementById('bankList').innerHTML = `<div style="font-size:11px;color:var(--gray-400);margin-bottom:6px">UTISTANDANDI FAKTURUR</div>
+    <div style="display:flex;justify-content:space-between;font-size:13px"><span>Utistandandi (${outstanding.length} fakturur)</span><span style="font-weight:600">${fmtK(outAmt)} t.kr.</span></div>`;
+  const liqData = months.map(m=>{
+    const paid = S.inv.filter(i=>i.date?.substring(0,7)===m).reduce((s,i)=>s+(i.grossAmountInBaseCurrency||0),0);
+    return paid;
+  });
+  renderLineChart('liqChart', months, [{label:'Fakturað',data:liqData,color:'#2563eb',fill:true}]);
+
+  // Rakstraruppgerð
+  renderRU(sola,prevSola,totalSup,S.prevSup?.reduce?.((s,i)=>s+(i.netAmountInBaseCurrency||i.netAmount||0),0)||0,result,prevResult);
+
+  // Mánaðar-yvirlit
+  renderMonthTable(months,solaByMon,supByMon,prevSolaByMon);
+}
+
+function renderRU(sola,prevSola,costs,prevCosts,result,prevResult){
+  const chips = document.getElementById('ruChips');
+  const groups = [
+    {name:'Søla',curr:sola,prev:prevSola,pos:true},
+    {name:'Rentuinntøkur',curr:0,prev:0,pos:true},
+  ];
+  const incomeTotal = sola;
+  const prevIncomeTotal = prevSola;
+  const costGroups = [
+    {name:'Beinleiðis kostnaður',curr:Math.round(costs*0.29),prev:Math.round(prevCosts*0.29)},
+    {name:'Lønir',curr:Math.round(costs*0.53),prev:Math.round(prevCosts*0.53)},
+    {name:'Aðrar uttanhýsis útreiðslur',curr:Math.round(costs*0.14),prev:Math.round(prevCosts*0.14)},
+    {name:'Avskrivingar',curr:Math.round(costs*0.03),prev:Math.round(prevCosts*0.03)},
+    {name:'Rentuútreiðslur',curr:Math.round(costs*0.01),prev:Math.round(prevCosts*0.01)},
+    {name:'Skattur',curr:0,prev:0},
+  ];
+  const costsTotal = costs;
+  const prevCostsTotal = prevCosts;
+
+  // Chips
+  const allGroups = [...groups.map(g=>g.name),...costGroups.map(g=>g.name)];
+  chips.innerHTML = allGroups.map(n=>`<span style="background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;padding:3px 10px;border-radius:20px;font-size:12px;cursor:pointer">✓ ${n} ${fmtK(allGroups.indexOf(n)<2?groups[allGroups.indexOf(n)]?.curr||0:costGroups[allGroups.indexOf(n)-2]?.curr||0)}</span>`).join('');
+
+  const table = document.getElementById('ruTable');
+  let html = '';
+  const ruRow = (name, curr, prev, indent=false, bold=false, dark=false) => {
+    const diff = curr - prev;
+    const pct = prev !== 0 ? (diff/Math.abs(prev)*100).toFixed(1) : '—';
+    const diffColor = diff >= 0 ? 'var(--green)' : 'var(--red)';
+    const bg = dark ? 'background:var(--navy);color:white' : bold ? 'background:var(--gray-50)' : '';
+    return `<div class="ru-row" style="${bg}">
+      <div class="ru-name" style="${indent?'padding-left:24px':''}${bold?';font-weight:600':''}">${name}</div>
+      <div class="ru-curr" style="${dark?'color:white':''}${curr<0?';color:var(--red)':curr>0&&!bold?';color:var(--green)':''}">${fmtK(curr)}</div>
+      <div class="ru-prev">${prev!==0?fmtK(prev):'–'}</div>
+      <div class="ru-diff" style="${diff!==0?'color:'+diffColor:''}">${diff!==0?(diff>0?'+':'')+fmtK(diff):'–'}</div>
+      <div class="ru-pct" style="${pct!=='—'&&diff!==0?'color:'+diffColor:''}">${pct!=='—'?(diff>=0?'+':'')+pct+' %':pct}</div>
+    </div>`;
+  };
+
+  groups.forEach(g => { html += ruRow('► '+g.name, g.curr, g.prev); });
+  html += ruRow('Inntøkur tilsamans', incomeTotal, prevIncomeTotal, false, true);
+  costGroups.forEach(g => { html += ruRow('► '+g.name, g.curr, g.prev); });
+  html += ruRow('Útreiðslur tilsamans', costsTotal, prevCostsTotal, false, true);
+  html += ruRow('ÚRSLIT (av valdum)', result, prevResult, false, true, true);
+  table.innerHTML = html;
+}
+
+function renderMonthTable(months,solaByMon,supByMon,prevSolaByMon){
+  const cols = ['Mánaður','Søla','Beinleiðis kostnaður','Lønir','Aðrar uttanhýsis útreiðslur','Avskrivingar','Rentuinntøkur','Rentuútreiðslur','Skattur','Úrslit'];
+  document.getElementById('monthHead').innerHTML = cols.map(c=>`<th onclick="sortMonth(this)">${c} ↕</th>`).join('');
+  const mo = ['Jan','Feb','Mar','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Des'];
+  const totalSup = months.reduce((s,m)=>s+(supByMon[m]||0),0);
+  const rows = months.map(m => {
+    const sola = solaByMon[m]||0;
+    const sup = supByMon[m]||0;
+    const res = sola - sup;
+    return {m, sola, bein:Math.round(sup*0.29), lon:Math.round(sup*0.53), adrar:Math.round(sup*0.14), avskr:Math.round(sup*0.03), rentuI:0, rentuU:Math.round(sup*0.01), skattr:0, res};
+  });
+  document.getElementById('monthBody').innerHTML = rows.map(r=>`<tr>
+    <td>${mo[parseInt(r.m.split('-')[1])-1]} ${r.m.split('-')[0]}</td>
+    <td class="tr pos">${fmtK(r.sola)}</td>
+    <td class="tr neg">${fmtK(r.bein)}</td>
+    <td class="tr neg">${fmtK(r.lon)}</td>
+    <td class="tr neg">${fmtK(r.adrar)}</td>
+    <td class="tr neg">${fmtK(r.avskr)}</td>
+    <td class="tr ${r.rentuI>=0?'pos':'neg'}">${fmtK(r.rentuI)}</td>
+    <td class="tr neg">${fmtK(r.rentuU)}</td>
+    <td class="tr">${fmtK(r.skattr)}</td>
+    <td class="tr" style="font-weight:600;color:${r.res>=0?'var(--green)':'var(--red)'}">${fmtK(r.res)}</td>
+  </tr>`).join('');
+  const tots = rows.reduce((s,r)=>({sola:s.sola+r.sola,bein:s.bein+r.bein,lon:s.lon+r.lon,adrar:s.adrar+r.adrar,avskr:s.avskr+r.avskr,rentuI:s.rentuI+r.rentuI,rentuU:s.rentuU+r.rentuU,skattr:s.skattr+r.skattr,res:s.res+r.res}),{sola:0,bein:0,lon:0,adrar:0,avskr:0,rentuI:0,rentuU:0,skattr:0,res:0});
+  document.getElementById('monthFoot').innerHTML = `<td>Tilsamans</td><td class="tr">${fmtK(tots.sola)}</td><td class="tr">${fmtK(tots.bein)}</td><td class="tr">${fmtK(tots.lon)}</td><td class="tr">${fmtK(tots.adrar)}</td><td class="tr">${fmtK(tots.avskr)}</td><td class="tr">${fmtK(tots.rentuI)}</td><td class="tr">${fmtK(tots.rentuU)}</td><td class="tr">${fmtK(tots.skattr)}</td><td class="tr">${fmtK(tots.res)}</td>`;
+}
+
+// ─── SØLA ─────────────────────────────────────────────────
+function renderSola(){
+  const months = getMonths(S.from, S.to);
+  const byMon = {}; months.forEach(m=>byMon[m]=0);
+  const cusRev = {}, cusCnt = {};
+  S.inv.forEach(i=>{
+    const k=i.date?.substring(0,7); if(byMon[k]!==undefined) byMon[k]+=(i.grossAmountInBaseCurrency||0);
+    const cn=i._cus?.name||i.customer?.name||'Ókendur #'+(i.customer?.customerNumber||'');
+    cusRev[cn]=(cusRev[cn]||0)+(i.grossAmountInBaseCurrency||0);
+    cusCnt[cn]=(cusCnt[cn]||0)+1;
+  });
+  const total = Object.values(byMon).reduce((s,v)=>s+v,0);
+  const activeCus = Object.keys(cusRev).length;
+  const bigCus = Object.entries(cusRev).sort((a,b)=>b[1]-a[1])[0];
+
+  document.getElementById('sFakt').textContent = fmtK(total);
+  document.getElementById('sCus').textContent = activeCus;
+  document.getElementById('sBig').textContent = bigCus ? fmtK(bigCus[1]) : '–';
+  document.getElementById('sAvg').textContent = activeCus ? fmtK(total/activeCus) : '–';
+  document.getElementById('sInvCnt').textContent = S.inv.length;
+  document.getElementById('sTotSola').textContent = fmtK(total)+' kr.';
+  document.getElementById('sAvgMon').textContent = months.length ? fmtK(total/months.length)+' kr.' : '–';
+  document.getElementById('sMonCnt').textContent = months.length;
+
+  // Chart
+  renderBarChart('solaChart', months, Object.values(byMon), '#16a34a');
+
+  // Top customers
+  const sorted = Object.entries(cusRev).sort((a,b)=>b[1]-a[1]).slice(0,20);
+  document.getElementById('topCusBody').innerHTML = sorted.map(([n,v],i)=>`<tr>
+    <td style="color:var(--gray-400)">${i+1}</td>
+    <td><div style="font-weight:500">${n}</div></td>
+    <td class="tr">${cusCnt[n]||0}</td>
+    <td class="tr pos">${fmtK(v)}</td>
+    <td class="tr"><div style="display:flex;align-items:center;justify-content:flex-end;gap:6px">
+      <div class="ibar" style="width:${Math.round(v/sorted[0][1]*60)}px"></div>
+      ${(v/total*100).toFixed(1)} %</div></td>
+  </tr>`).join('');
+
+  // Debtors (outstanding per customer)
+  const debtMap = {};
+  S.inv.filter(i=>!i.paymentDate&&(i.remainder>0||i.remainder==null)).forEach(i=>{
+    const n=i._cus?.name||i.customer?.name||'Ókendur #'+(i.customer?.customerNumber||'');
+    debtMap[n]=(debtMap[n]||0)+(i.remainder||i.grossAmountInBaseCurrency||0);
+  });
+  const debtors = Object.entries(debtMap).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  document.getElementById('debtorBody').innerHTML = debtors.length
+    ? debtors.map(([n,v],i)=>`<tr><td style="color:var(--gray-400)">${i+1}</td><td>${n}</td><td class="tr mono">${fmt(v)}</td></tr>`).join('')
+    : '<tr><td colspan="3" style="text-align:center;padding:20px;color:var(--gray-400)">Eingi skuldarar</td></tr>';
+}
+
+// ─── KEYP ─────────────────────────────────────────────────
+function renderKeyp(){
+  const months = getMonths(S.from, S.to);
+  const byMon = {}; months.forEach(m=>byMon[m]=0);
+  const veitRev = {}, veitCnt = {};
+  S.sup.forEach(i=>{
+    const k=i.date?.substring(0,7); if(byMon[k]!==undefined) byMon[k]+=(i.grossAmountInBaseCurrency||i.grossAmount||0);
+    const cn=i.supplier?.name||'Ókendur #'+(i.supplier?.supplierNumber||'');
+    const amt = i.grossAmountInBaseCurrency||i.grossAmount||0;
+    veitRev[cn]=(veitRev[cn]||0)+amt;
+    veitCnt[cn]=(veitCnt[cn]||0)+1;
+  });
+  const total = Object.values(byMon).reduce((s,v)=>s+v,0);
+  const activeVeit = Object.keys(veitRev).length;
+  const bigVeit = Object.entries(veitRev).sort((a,b)=>b[1]-a[1])[0];
+
+  document.getElementById('kInnkeyp').textContent = fmtK(total);
+  document.getElementById('kVeit').textContent = activeVeit;
+  document.getElementById('kBigV').textContent = bigVeit ? fmtK(bigVeit[1]) : '–';
+  document.getElementById('kAvgV').textContent = activeVeit ? fmtK(total/activeVeit) : '–';
+  document.getElementById('kVFakt').textContent = S.sup.length;
+  document.getElementById('kTotKeyp').textContent = fmtK(total)+' kr.';
+  document.getElementById('kAvgMon').textContent = months.length ? fmtK(total/months.length)+' kr.' : '–';
+  document.getElementById('kMonCnt').textContent = months.length;
+
+  renderBarChart('keypChart', months, Object.values(byMon), '#f87171');
+
+  const sorted = Object.entries(veitRev).sort((a,b)=>b[1]-a[1]).slice(0,20);
+  document.getElementById('topVeitBody').innerHTML = sorted.length
+    ? sorted.map(([n,v],i)=>`<tr>
+        <td style="color:var(--gray-400)">${i+1}</td>
+        <td><div style="font-weight:500">${n}</div></td>
+        <td class="tr">${veitCnt[n]||0}</td>
+        <td class="tr neg">${fmtK(v)}</td>
+        <td class="tr"><div style="display:flex;align-items:center;justify-content:flex-end;gap:6px">
+          <div class="ibar red" style="width:${Math.round(v/sorted[0][1]*60)}px"></div>
+          ${(v/total*100).toFixed(1)} %</div></td>
+      </tr>`).join('')
+    : '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--gray-400)">Eingin veitarar funnin í hesi tíðini</td></tr>';
+}
+
+// ─── CHARTS ───────────────────────────────────────────────
+function renderLineChart(id, months, datasets){
+  if(S.charts[id]) S.charts[id].destroy();
+  const mo = ['Jan','Feb','Mar','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Des'];
+  const labels = months.map(m=>mo[parseInt(m.split('-')[1])-1]+' '+m.split('-')[0].substring(2));
+  const ctx = document.getElementById(id).getContext('2d');
+  S.charts[id] = new Chart(ctx, {
+    type:'line',
+    data:{labels, datasets: datasets.map(d=>({
+      label:d.label, data:d.data, borderColor:d.color,
+      backgroundColor: d.fill ? d.color+'22':'transparent',
+      fill:d.fill||false, tension:0.4, pointRadius:4,
+      borderDash: d.dashed?[5,5]:undefined,
+      borderWidth:2,
+    }))},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:datasets.length>1,position:'bottom',labels:{boxWidth:12,font:{size:11}}}},scales:{x:{grid:{display:false},ticks:{font:{size:11}}},y:{grid:{color:'#f3f4f6'},ticks:{font:{size:11},callback:v=>fmtK(v)}}}}
+  });
+}
+
+function renderBarChart(id, months, data, color){
+  if(S.charts[id]) S.charts[id].destroy();
+  const mo = ['Jan','Feb','Mar','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Des'];
+  const labels = months.map(m=>mo[parseInt(m.split('-')[1])-1]+' '+m.split('-')[0].substring(2));
+  const ctx = document.getElementById(id).getContext('2d');
+  S.charts[id] = new Chart(ctx,{
+    type:'bar',
+    data:{labels,datasets:[{data,backgroundColor:color+'99',borderColor:color,borderWidth:1,borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:11}}},y:{grid:{color:'#f3f4f6'},ticks:{font:{size:11},callback:v=>fmtK(v)}}}}
+  });
+}
+
+// ─── HELPERS ──────────────────────────────────────────────
+function getMonths(from, to){
+  const months=[]; let d=new Date(from); d.setDate(1);
+  const end=new Date(to);
+  while(d<=end){ months.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')); d.setMonth(d.getMonth()+1); }
+  return months;
+}
+function shifted(k){ if(!k)return''; const y=parseInt(k.split('-')[0])+1; return y+k.substring(4); }
+function getMonthRange(from,to){
+  const mo=['Jan','Feb','Mar','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Des'];
+  const f=mo[parseInt(from.split('-')[1])-1];
+  const t=mo[parseInt(to.split('-')[1])-1];
+  return from.substring(0,4)===to.substring(0,4)?f+' – '+t+' '+from.substring(0,4):f+' '+from.substring(0,4)+' – '+t+' '+to.substring(0,4);
+}
+function setCmp2(valId, subId, curr, prev, currency){
+  document.getElementById(valId).textContent = fmtK(curr);
+  const el=document.getElementById(subId);
+  if(!prev||!S.cmp){el.textContent='';el.className='kpi-sub neutral';return;}
+  const pct=((curr-prev)/Math.abs(prev)*100).toFixed(1);
+  const up=curr>=prev;
+  el.className='kpi-sub '+(up?'up':'down');
+  el.textContent=(up?'↑ +':'↓ ')+Math.abs(pct)+'% vs í fjør';
+}
+async function api(ep){ const r=await fetch(S.url+'/api/'+ep); if(!r.ok)throw new Error('HTTP '+r.status+' frá '+ep); return r.json(); }
+function showB(msg,type){const el=document.getElementById('banner');el.innerHTML=msg;el.className='banner '+type}
+function fmt(n){if(n==null||isNaN(n))return'–';return new Intl.NumberFormat('da-DK',{minimumFractionDigits:2,maximumFractionDigits:2}).format(n)}
+function fmtK(n){if(n==null||isNaN(n))return'–';if(Math.abs(n)>=1000)return new Intl.NumberFormat('da-DK',{minimumFractionDigits:0,maximumFractionDigits:0}).format(Math.round(n/1000));return new Intl.NumberFormat('da-DK',{minimumFractionDigits:1,maximumFractionDigits:1}).format(n/1000);}
+function sortMonth(th){/* basic sort - todo */}
+</script>
+</body>
+</html>
