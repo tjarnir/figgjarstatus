@@ -4,15 +4,12 @@ const CORS = {
   "Access-Control-Allow-Headers": "Content-Type",
 };
 const BASE = "https://restapi.e-conomic.com";
-
 export default {
   async fetch(request, env) {
     if (request.method === "OPTIONS") return new Response(null, { headers: CORS });
     const url = new URL(request.url);
     const path = url.pathname;
-
     if (path === "/api/health") return json({ ok: true });
-
     if (path === "/api/invoices-period") {
       const from = url.searchParams.get("from");
       const to = url.searchParams.get("to");
@@ -25,16 +22,12 @@ export default {
       }
       return json(result);
     }
-
     if (path === "/api/invoices-booked")
       return json({ collection: await fetchAll(`${BASE}/invoices/booked`, env) });
-
     if (path === "/api/invoices-drafts")
       return json(await fetchE(`${BASE}/invoices/drafts?skippages=0&pagesize=100`, env));
-
     if (path === "/api/customers")
       return json(await fetchE(`${BASE}/customers?skippages=0&pagesize=1000`, env));
-
     if (path === "/api/supplier-invoices") {
       const from = url.searchParams.get("from");
       const to = url.searchParams.get("to");
@@ -48,14 +41,59 @@ export default {
       }
       return json(result);
     }
-
     if (path === "/api/accounts")
       return json(await fetchE(`${BASE}/accounts?skippages=0&pagesize=1000`, env));
+
+    if (path === "/api/debug-customer") {
+      const num = url.searchParams.get("num");
+      const out = {};
+      out.booked = await fetchE(`${BASE}/customers/${num}/invoices/booked?skippages=0&pagesize=200`, env);
+      out.unpaid = await fetchE(`${BASE}/customers/${num}/invoices/unpaid?skippages=0&pagesize=200`, env);
+      out.totals = await fetchE(`${BASE}/customers/${num}/invoices/totals`, env);
+      return json(out);
+    }
+
+    if (path === "/api/debitors-aging") {
+      const customers = (await fetchAll(`${BASE}/customers`, env)).filter(c => c.balance && c.balance !== 0);
+      const today = new Date();
+      const results = [];
+      const chunkSize = 10;
+      for (let i = 0; i < customers.length; i += chunkSize) {
+        const chunk = customers.slice(i, i + chunkSize);
+        const settled = await Promise.all(chunk.map(async (c) => {
+          const booked = await fetchAll(`${BASE}/customers/${c.customerNumber}/invoices/booked`, env);
+          const invoices = booked
+            .filter(inv => (inv.remainder ?? 0) !== 0)
+            .map(inv => {
+              const due = inv.dueDate ? new Date(inv.dueDate) : null;
+              const daysOverdue = due ? Math.floor((today - due) / 86400000) : 0;
+              return {
+                bookedInvoiceNumber: inv.bookedInvoiceNumber,
+                date: inv.date,
+                dueDate: inv.dueDate,
+                remainder: inv.remainder ?? 0,
+                grossRemainder: inv.grossRemainder ?? inv.remainder ?? 0,
+                daysOverdue,
+              };
+            });
+          const invoicedSum = invoices.reduce((s, i) => s + (i.remainder || 0), 0);
+          return {
+            customerNumber: c.customerNumber,
+            name: c.name,
+            balance: c.balance,
+            currency: c.currency,
+            invoices,
+            unmatched: Math.round(((c.balance || 0) - invoicedSum) * 100) / 100,
+          };
+        }));
+        results.push(...settled);
+      }
+      return json({ collection: results, generatedAt: today.toISOString() });
+    }
 
     return json({ error: "Endpoint ikki funnin: " + path }, 404);
   },
 };
-
 async function fetchAll(baseUrl, env, page = 0, collected = []) {
   const sep = baseUrl.includes('?') ? '&' : '?';
   const res = await fetchE(`${baseUrl}${sep}skippages=${page}&pagesize=200`, env);
@@ -64,7 +102,6 @@ async function fetchAll(baseUrl, env, page = 0, collected = []) {
   if (res.pagination?.nextPage) return fetchAll(baseUrl, env, page + 1, collected);
   return collected;
 }
-
 async function fetchE(url, env) {
   try {
     const res = await fetch(url, {
@@ -78,12 +115,10 @@ async function fetchE(url, env) {
     return await res.json();
   } catch(e) { return { error: e.message, collection: [] }; }
 }
-
 function shiftYear(d, y) {
   const dt = new Date(d); dt.setFullYear(dt.getFullYear() + y);
   return dt.toISOString().split("T")[0];
 }
-
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status, headers: { ...CORS, "Content-Type": "application/json; charset=utf-8" },
