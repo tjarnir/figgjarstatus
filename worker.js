@@ -47,8 +47,11 @@ export default {
     if (path === "/api/debug-customer") {
       const num = url.searchParams.get("num");
       const out = {};
-      out.booked = await fetchE(`${BASE}/customers/${num}/invoices/booked?skippages=0&pagesize=200`, env);
-      out.entries = await fetchE(`${BASE}/customers/${num}/entries?filter=remainder$ne:0&skippages=0&pagesize=200`, env);
+      out.a_booked = await fetchE(`${BASE}/customers/${num}/invoices/booked?skippages=0&pagesize=5`, env);
+      out.b_entries = await fetchE(`${BASE}/customers/${num}/entries?skippages=0&pagesize=200`, env);
+      out.c_openentries = await fetchE(`${BASE}/customers/${num}/open-entries?skippages=0&pagesize=200`, env);
+      out.d_globalentries = await fetchE(`${BASE}/customers-entries?filter=customer.customerNumber$eq:${num}&skippages=0&pagesize=200`, env);
+      out.e_debtorentries = await fetchE(`${BASE}/customer-entries?filter=customer.customerNumber$eq:${num}&skippages=0&pagesize=200`, env);
       return json(out);
     }
 
