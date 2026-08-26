@@ -44,17 +44,6 @@ export default {
     if (path === "/api/accounts")
       return json(await fetchE(`${BASE}/accounts?skippages=0&pagesize=1000`, env));
 
-    if (path === "/api/debug-customer") {
-      const num = url.searchParams.get("num");
-      const out = {};
-      out.a_booked = await fetchE(`${BASE}/customers/${num}/invoices/booked?skippages=0&pagesize=5`, env);
-      out.b_entries = await fetchE(`${BASE}/customers/${num}/entries?skippages=0&pagesize=200`, env);
-      out.c_openentries = await fetchE(`${BASE}/customers/${num}/open-entries?skippages=0&pagesize=200`, env);
-      out.d_globalentries = await fetchE(`${BASE}/customers-entries?filter=customer.customerNumber$eq:${num}&skippages=0&pagesize=200`, env);
-      out.e_debtorentries = await fetchE(`${BASE}/customer-entries?filter=customer.customerNumber$eq:${num}&skippages=0&pagesize=200`, env);
-      return json(out);
-    }
-
     if (path === "/api/debitors-aging") {
       const customers = (await fetchAll(`${BASE}/customers`, env)).filter(c => c.balance && c.balance !== 0);
       const today = new Date();
@@ -74,10 +63,10 @@ export default {
                 date: inv.date,
                 dueDate: inv.dueDate,
                 remainder: inv.remainder ?? 0,
-                grossRemainder: inv.grossRemainder ?? inv.remainder ?? 0,
                 daysOverdue,
               };
-            });
+            })
+            .sort((a, b) => b.daysOverdue - a.daysOverdue);
           const invoicedSum = invoices.reduce((s, i) => s + (i.remainder || 0), 0);
           return {
             customerNumber: c.customerNumber,

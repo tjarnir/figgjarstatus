@@ -332,18 +332,17 @@ tfoot td{padding:10px 12px;background:var(--navy);color:white;font-weight:600;fo
 
 <!-- ===== DEBITORAR ===== -->
 <div id="page-debitorar" style="display:none">
-
   <div class="kpi-grid">
     <div class="kpi"><div class="kpi-label">Útistandandi tilsamans</div><div class="kpi-value" id="dTotal">–</div><div class="kpi-sub neutral" id="dGenAt"></div></div>
+    <div class="kpi"><div class="kpi-label">Forfalið (>30 dagar)</div><div class="kpi-value" id="dOverdue">–</div><div class="kpi-sub neutral" id="dOverdueSub"></div></div>
     <div class="kpi"><div class="kpi-label">Tal av debitorum</div><div class="kpi-value" id="dCount">–</div></div>
-    <div class="kpi"><div class="kpi-label">Forfalnar fakturaur</div><div class="kpi-value" id="dOverdue">–</div><div class="kpi-sub neutral" id="dOverdueSub"></div></div>
     <div class="kpi"><div class="kpi-label">Verst forfalin</div><div class="kpi-value" id="dWorst">–</div><div class="kpi-sub neutral" id="dWorstSub"></div></div>
   </div>
 
   <div class="card">
     <div class="sh"><div><div class="st">Aldursbýti</div><div class="st-sub">Útistandandi upphæddir eftir forfalnum døgum (grundað á restupphædd pr. faktura)</div></div></div>
     <div id="agingBars" style="margin-top:8px"></div>
-    <div class="chart-wrap" style="height:160px;margin-top:12px"><canvas id="agingChart"></canvas></div>
+    <div style="height:150px;margin-top:14px"><canvas id="agingChart"></canvas></div>
   </div>
 
   <div class="card">
@@ -352,22 +351,21 @@ tfoot td{padding:10px 12px;background:var(--navy);color:white;font-weight:600;fo
       <button class="bq" onclick="exportDebitors()">⬇ CSV</button>
     </div>
     <div class="table-wrap">
-      <table id="debTable">
+      <table id="debTable" style="width:100%;border-collapse:collapse">
         <thead><tr>
-          <th onclick="sortDeb('name')">Debitorur</th>
-          <th class="tr" onclick="sortDeb('count')">Opnar</th>
-          <th class="tr" onclick="sortDeb('b0')">0–30</th>
-          <th class="tr" onclick="sortDeb('b1')">31–60</th>
-          <th class="tr" onclick="sortDeb('b2')">61–90</th>
-          <th class="tr" onclick="sortDeb('b3')">90+</th>
-          <th class="tr" onclick="sortDeb('balance')">Saldo</th>
+          <th style="text-align:left;padding:9px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-400);cursor:pointer" onclick="sortDeb('name')">Debitorur</th>
+          <th class="tr" style="padding:9px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-400);cursor:pointer" onclick="sortDeb('count')">Opnar</th>
+          <th class="tr" style="padding:9px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-400);cursor:pointer" onclick="sortDeb('b0')">0–30</th>
+          <th class="tr" style="padding:9px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-400);cursor:pointer" onclick="sortDeb('b1')">31–60</th>
+          <th class="tr" style="padding:9px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-400);cursor:pointer" onclick="sortDeb('b2')">61–90</th>
+          <th class="tr" style="padding:9px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-400);cursor:pointer" onclick="sortDeb('b3')">90+</th>
+          <th class="tr" style="padding:9px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--gray-400);cursor:pointer" onclick="sortDeb('balance')">Saldo</th>
         </tr></thead>
         <tbody id="debBody"></tbody>
-        <tfoot><tr id="debFoot"></tr></tfoot>
+        <tfoot><tr id="debFoot" style="font-weight:700;border-top:2px solid var(--gray-200)"></tr></tfoot>
       </table>
     </div>
   </div>
-
 </div><!-- /debitorar -->
 
 <!-- ===== KEYP ===== -->
@@ -785,6 +783,109 @@ function renderKeyp(){
     : '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--gray-400)">Eingin veitarar funnin í hesi tíðini</td></tr>';
 }
 
+// ─── DEBITORAR ────────────────────────────────────────────
+async function loadDebitors(){
+  showB('Heintir debitorar og opnar fakturaur… (kann taka nakrar sekund)','loading');
+  try {
+    const r = await api('debitors-aging');
+    S.deb = (r.collection||[]).map(c=>{
+      const b=[0,0,0,0]; let count=0;
+      (c.invoices||[]).forEach(inv=>{
+        const amt = inv.remainder||0;
+        if(amt===0) return;
+        count++;
+        const d=inv.daysOverdue;
+        if(d<=30) b[0]+=amt; else if(d<=60) b[1]+=amt; else if(d<=90) b[2]+=amt; else b[3]+=amt;
+      });
+      const overdueInv = (c.invoices||[]).filter(i=>i.remainder>0&&i.daysOverdue>30);
+      const maxOver = (c.invoices||[]).reduce((m,i)=>(i.remainder>0&&i.daysOverdue>m)?i.daysOverdue:m, -1);
+      return {...c, b0:b[0], b1:b[1], b2:b[2], b3:b[3], count, overdueCount:overdueInv.length, maxOver};
+    });
+    S.debLoaded = true;
+    renderDebitors();
+    showB(`✓ ${S.deb.length} debitorar heintaðir`,'success');
+  } catch(e){ showB('Villa: '+e.message,'error'); console.error(e); }
+}
+
+function renderDebitors(){
+  const rows = S.deb;
+  const sum = k => rows.reduce((s,r)=>s+(r[k]||0),0);
+  const tot = sum('b0')+sum('b1')+sum('b2')+sum('b3');
+  const overdueAmt = sum('b1')+sum('b2')+sum('b3');
+  const overdueCnt = rows.reduce((s,r)=>s+r.overdueCount,0);
+  const worst = rows.reduce((w,r)=>(r.maxOver>0&&(!w||r.maxOver>w.maxOver))?r:w, null);
+
+  document.getElementById('dTotal').textContent = fmt(tot)+' kr.';
+  document.getElementById('dGenAt').textContent = 'Pr. '+new Date().toLocaleDateString('da-DK');
+  document.getElementById('dOverdue').textContent = fmt(overdueAmt)+' kr.';
+  document.getElementById('dOverdueSub').textContent = overdueCnt+' fakturaur';
+  document.getElementById('dCount').textContent = rows.length;
+  document.getElementById('dWorst').textContent = worst ? worst.maxOver+' dagar' : '–';
+  document.getElementById('dWorstSub').textContent = worst ? worst.name : '';
+
+  const buckets=[['0–30 dagar',sum('b0'),'#16a34a'],['31–60 dagar',sum('b1'),'#d97706'],['61–90 dagar',sum('b2'),'#ea580c'],['90+ dagar',sum('b3'),'#dc2626']];
+  document.getElementById('agingBars').innerHTML = buckets.map(([lab,val,col])=>`
+    <div style="display:flex;align-items:center;gap:12px;padding:5px 0;font-size:13px">
+      <div style="width:92px;color:var(--gray-600)">${lab}</div>
+      <div style="flex:1;background:var(--gray-100);border-radius:4px;height:8px;overflow:hidden">
+        <div style="height:8px;background:${col};width:${tot?Math.max(0,Math.round(val/tot*100)):0}%"></div></div>
+      <div style="width:120px;text-align:right;font-family:monospace">${fmt(val)}</div>
+      <div style="width:48px;text-align:right;color:var(--gray-400)">${tot?(val/tot*100).toFixed(0):0}%</div>
+    </div>`).join('');
+
+  if(S.charts['agingChart']) S.charts['agingChart'].destroy();
+  S.charts['agingChart'] = new Chart(document.getElementById('agingChart').getContext('2d'),{
+    type:'bar',
+    data:{labels:['0–30','31–60','61–90','90+'],datasets:[{data:[sum('b0'),sum('b1'),sum('b2'),sum('b3')],backgroundColor:['#16a34a99','#d9770699','#ea580c99','#dc262699'],borderColor:['#16a34a','#d97706','#ea580c','#dc2626'],borderWidth:1,borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:11}}},y:{grid:{color:'#f3f4f6'},ticks:{font:{size:11},callback:v=>fmtK(v)}}}}
+  });
+
+  const {key,dir}=S.debSort;
+  const sorted=[...rows].sort((a,b)=>{ const av=key==='name'?a.name:a[key]||0, bv=key==='name'?b.name:b[key]||0; return key==='name'?dir*String(av).localeCompare(bv):dir*(av-bv); });
+
+  const cell=(v,warn)=>v>0?`<td class="tr mono" style="padding:9px 12px${warn>90?';color:var(--red);font-weight:600':warn>30?';color:var(--amber)':''}">${fmt(v)}</td>`:(v<0?`<td class="tr mono" style="padding:9px 12px;color:var(--gray-400)">${fmt(v)}</td>`:'<td class="tr" style="padding:9px 12px;color:var(--gray-200)">–</td>');
+
+  document.getElementById('debBody').innerHTML = sorted.length ? sorted.map((r,idx)=>{
+    const inv=(r.invoices||[]).filter(i=>i.remainder!==0);
+    const drill=inv.map(i=>{
+      const badge=i.daysOverdue>90?'badge-red':i.daysOverdue>30?'badge-amber':i.daysOverdue>0?'badge-gray':'badge-green';
+      const lbl=i.remainder<0?'krediteringur':i.daysOverdue>0?i.daysOverdue+' d. forfalin':'ikki forfalin';
+      return `<div class="ru-row" style="padding-left:28px;cursor:default">
+        <div class="ru-name"><span class="mono">#${i.bookedInvoiceNumber||'–'}</span> <span style="color:var(--gray-400)">${i.date||''}</span> → ${i.dueDate||'–'} <span class="badge ${badge}">${lbl}</span></div>
+        <div class="mono" style="width:130px;text-align:right">${fmt(i.remainder)}</div></div>`;
+    }).join('');
+    const unmatchedNote = Math.abs(r.unmatched)>0.5 ? `<div class="ru-row" style="padding-left:28px;cursor:default;color:var(--gray-400)"><div class="ru-name">Onnur saldo (íbetalingar/ymist uttan faktura)</div><div class="mono" style="width:130px;text-align:right">${fmt(r.unmatched)}</div></div>` : '';
+    return `<tr onclick="toggleDeb(${idx})" style="cursor:pointer;border-bottom:1px solid var(--gray-100)" data-deb="${idx}">
+        <td style="padding:9px 12px"><span class="ru-expand" id="dex-${idx}">▸</span> ${r.name}</td>
+        <td class="tr" style="padding:9px 12px">${r.count||'–'}</td>
+        ${cell(r.b0,0)}${cell(r.b1,45)}${cell(r.b2,75)}${cell(r.b3,120)}
+        <td class="tr mono" style="padding:9px 12px;font-weight:600">${fmt(r.balance)}</td>
+      </tr>
+      <tr id="drill-${idx}" style="display:none"><td colspan="7" style="padding:0;background:#fafafa">${drill||'<div style="padding:10px 28px;color:var(--gray-400)">Eingar opnar fakturaur</div>'}${unmatchedNote}</td></tr>`;
+  }).join('') : '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--gray-400)">Eingir debitorar við saldo</td></tr>';
+
+  document.getElementById('debFoot').innerHTML = `<td style="padding:9px 12px">Tilsamans</td><td class="tr" style="padding:9px 12px">${rows.reduce((s,r)=>s+r.count,0)}</td><td class="tr mono" style="padding:9px 12px">${fmt(sum('b0'))}</td><td class="tr mono" style="padding:9px 12px">${fmt(sum('b1'))}</td><td class="tr mono" style="padding:9px 12px">${fmt(sum('b2'))}</td><td class="tr mono" style="padding:9px 12px">${fmt(sum('b3'))}</td><td class="tr mono" style="padding:9px 12px">${fmt(rows.reduce((s,r)=>s+(r.balance||0),0))}</td>`;
+}
+
+function toggleDeb(idx){
+  const row=document.getElementById('drill-'+idx), ex=document.getElementById('dex-'+idx);
+  const open=row.style.display==='none';
+  row.style.display=open?'table-row':'none'; ex.textContent=open?'▾':'▸';
+}
+function sortDeb(key){
+  if(S.debSort.key===key) S.debSort.dir*=-1;
+  else S.debSort={key, dir: key==='name'?1:-1};
+  renderDebitors();
+}
+function exportDebitors(){
+  const head=['Debitorur','Kundanr','Opnar fakturaur','0-30','31-60','61-90','90+','Saldo'];
+  const lines=[head.join(';')];
+  S.deb.forEach(r=>lines.push([`"${(r.name||'').replace(/"/g,'""')}"`,r.customerNumber,r.count,r.b0.toFixed(2),r.b1.toFixed(2),r.b2.toFixed(2),r.b3.toFixed(2),(r.balance||0).toFixed(2)].join(';')));
+  const blob=new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='debitorar_'+new Date().toISOString().split('T')[0]+'.csv'; a.click();
+}
+
 // ─── CHARTS ───────────────────────────────────────────────
 function renderLineChart(id, months, datasets){
   if(S.charts[id]) S.charts[id].destroy();
@@ -804,119 +905,16 @@ function renderLineChart(id, months, datasets){
   });
 }
 
-function renderBarChart(id, months, data, color, customLabels){
+function renderBarChart(id, months, data, color){
   if(S.charts[id]) S.charts[id].destroy();
   const mo = ['Jan','Feb','Mar','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Des'];
-  const labels = customLabels || months.map(m=>mo[parseInt(m.split('-')[1])-1]+' '+m.split('-')[0].substring(2));
+  const labels = months.map(m=>mo[parseInt(m.split('-')[1])-1]+' '+m.split('-')[0].substring(2));
   const ctx = document.getElementById(id).getContext('2d');
   S.charts[id] = new Chart(ctx,{
     type:'bar',
     data:{labels,datasets:[{data,backgroundColor:color+'99',borderColor:color,borderWidth:1,borderRadius:4}]},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:11}}},y:{grid:{color:'#f3f4f6'},ticks:{font:{size:11},callback:v=>fmtK(v)}}}}
   });
-}
-
-// ─── DEBITORAR ────────────────────────────────────────────
-async function loadDebitors(){
-  showB('Heintir debitorar og opnar fakturaur…','loading');
-  try {
-    const r = await api('debitors-aging');
-    const rows = (r.collection||[]).map(c=>{
-      const b=[0,0,0,0]; let count=0;
-      c.invoices.forEach(inv=>{
-        const amt = inv.remainder||0;
-        if(amt===0) return;
-        count++;
-        const d=inv.daysOverdue;
-        if(d<=30) b[0]+=amt; else if(d<=60) b[1]+=amt; else if(d<=90) b[2]+=amt; else b[3]+=amt;
-      });
-      const maxOver = c.invoices.reduce((m,i)=>Math.max(m, i.remainder>0?i.daysOverdue:-9999), -9999);
-      return {...c, b0:b[0], b1:b[1], b2:b[2], b3:b[3], count, maxOver: maxOver===-9999?null:maxOver};
-    });
-    S.deb = rows;
-    S.debLoaded = true;
-    renderDebitors();
-    showB(`✓ ${rows.length} debitorar heintaðir`,'success');
-  } catch(e){ showB('Villa: '+e.message,'error'); console.error(e); }
-}
-
-function renderDebitors(){
-  const rows = S.deb;
-  const sum = k => rows.reduce((s,r)=>s+(r[k]||0),0);
-  const tot = sum('b0')+sum('b1')+sum('b2')+sum('b3');
-  const overdueAmt = sum('b1')+sum('b2')+sum('b3');
-  const overdueCnt = rows.reduce((s,r)=>s+r.invoices.filter(i=>i.remainder>0&&i.daysOverdue>30).length,0);
-  const worst = rows.reduce((w,r)=>(r.maxOver!=null&&(!w||r.maxOver>w.maxOver))?r:w, null);
-
-  document.getElementById('dTotal').textContent = fmtK(tot)+' kr.';
-  document.getElementById('dGenAt').textContent = 'Pr. '+new Date().toLocaleDateString('da-DK');
-  document.getElementById('dCount').textContent = rows.length;
-  document.getElementById('dOverdue').textContent = fmtK(overdueAmt)+' kr.';
-  document.getElementById('dOverdueSub').textContent = overdueCnt+' fakturaur > 30 dagar';
-  document.getElementById('dWorst').textContent = worst&&worst.maxOver>0 ? worst.maxOver+' dagar' : '–';
-  document.getElementById('dWorstSub').textContent = worst&&worst.maxOver>0 ? worst.name : '';
-
-  // Aging bars
-  const buckets=[['0–30 dagar',sum('b0'),'var(--green)'],['31–60 dagar',sum('b1'),'var(--amber)'],['61–90 dagar',sum('b2'),'#ea580c'],['90+ dagar',sum('b3'),'var(--red)']];
-  document.getElementById('agingBars').innerHTML = buckets.map(([lab,val,col])=>`
-    <div style="display:flex;align-items:center;gap:12px;padding:6px 0;font-size:13px">
-      <div style="width:90px;color:var(--gray-600)">${lab}</div>
-      <div style="flex:1;background:var(--gray-100);border-radius:4px;height:8px;overflow:hidden">
-        <div style="height:8px;background:${col};width:${tot?Math.round(val/tot*100):0}%"></div></div>
-      <div style="width:110px;text-align:right;font-family:monospace">${fmt(val)}</div>
-      <div style="width:50px;text-align:right;color:var(--gray-400)">${tot?(val/tot*100).toFixed(0):0}%</div>
-    </div>`).join('');
-
-  renderBarChart('agingChart', null, [sum('b0'),sum('b1'),sum('b2'),sum('b3')], '#2563eb', ['0–30','31–60','61–90','90+']);
-
-  // Table
-  const {key,dir}=S.debSort;
-  const sorted=[...rows].sort((a,b)=>{ const av=key==='name'?a.name:a[key]||0, bv=key==='name'?b.name:b[key]||0; return key==='name'?dir*String(av).localeCompare(bv):dir*(av-bv); });
-
-  document.getElementById('debBody').innerHTML = sorted.length ? sorted.map((r,idx)=>{
-    const cell=(v,d)=>v>0?`<td class="tr mono"${d>90?' style="color:var(--red);font-weight:600"':d>30?' style="color:var(--amber)"':''}>${fmt(v)}</td>`:'<td class="tr" style="color:var(--gray-200)">–</td>';
-    const inv = r.invoices.filter(i=>i.remainder>0).sort((a,b)=>b.daysOverdue-a.daysOverdue);
-    const drill = inv.map(i=>{
-      const badge = i.daysOverdue>90?'badge-red':i.daysOverdue>30?'badge-amber':i.daysOverdue>0?'badge-gray':'badge-green';
-      const lbl = i.daysOverdue>0?i.daysOverdue+' d. forfalin':'ikki forfalin';
-      return `<div class="ru-row" style="padding-left:24px;cursor:default">
-        <div class="ru-name"><span class="mono">#${i.bookedInvoiceNumber||'–'}</span> <span style="color:var(--gray-400)">${i.date||''}</span> → forfaldur ${i.dueDate||'–'} <span class="badge ${badge}">${lbl}</span></div>
-        <div class="mono" style="width:120px;text-align:right">${fmt(i.remainder)}</div></div>`;
-    }).join('');
-    return `<tr onclick="toggleDeb(${idx})" style="cursor:pointer" data-deb="${idx}">
-        <td><span class="ru-expand" id="dex-${idx}">▸</span> ${r.name}</td>
-        <td class="tr">${r.count}</td>
-        ${cell(r.b0,0)}${cell(r.b1,45)}${cell(r.b2,75)}${cell(r.b3,120)}
-        <td class="tr mono" style="font-weight:600">${fmt(r.balance)}</td>
-      </tr>
-      <tr id="drill-${idx}" style="display:none"><td colspan="7" style="padding:0;background:#fafafa">${drill||'<div style="padding:12px;color:var(--gray-400)">Eingar opnar fakturaur</div>'}</td></tr>`;
-  }).join('') : '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--gray-400)">Eingir debitorar við saldo</td></tr>';
-
-  document.getElementById('debFoot').innerHTML = `<td>Tilsamans</td><td class="tr">${rows.reduce((s,r)=>s+r.count,0)}</td><td class="tr mono">${fmt(sum('b0'))}</td><td class="tr mono">${fmt(sum('b1'))}</td><td class="tr mono">${fmt(sum('b2'))}</td><td class="tr mono">${fmt(sum('b3'))}</td><td class="tr mono">${fmt(tot)}</td>`;
-}
-
-function toggleDeb(idx){
-  const row=document.getElementById('drill-'+idx);
-  const ex=document.getElementById('dex-'+idx);
-  const open = row.style.display==='none';
-  row.style.display = open?'table-row':'none';
-  ex.textContent = open?'▾':'▸';
-}
-
-function sortDeb(key){
-  if(S.debSort.key===key) S.debSort.dir*=-1;
-  else S.debSort={key, dir: key==='name'?1:-1};
-  renderDebitors();
-}
-
-function exportDebitors(){
-  const rows=S.deb;
-  const head=['Debitorur','Kundanr','Opnar fakturaur','0-30','31-60','61-90','90+','Saldo'];
-  const lines=[head.join(';')];
-  rows.forEach(r=>lines.push([`"${r.name}"`,r.customerNumber,r.count,r.b0.toFixed(2),r.b1.toFixed(2),r.b2.toFixed(2),r.b3.toFixed(2),(r.balance||0).toFixed(2)].join(';')));
-  const blob=new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
-  a.download='debitorar_'+new Date().toISOString().split('T')[0]+'.csv'; a.click();
 }
 
 // ─── HELPERS ──────────────────────────────────────────────
