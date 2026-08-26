@@ -48,8 +48,7 @@ export default {
       const num = url.searchParams.get("num");
       const out = {};
       out.booked = await fetchE(`${BASE}/customers/${num}/invoices/booked?skippages=0&pagesize=200`, env);
-      out.unpaid = await fetchE(`${BASE}/customers/${num}/invoices/unpaid?skippages=0&pagesize=200`, env);
-      out.totals = await fetchE(`${BASE}/customers/${num}/invoices/totals`, env);
+      out.entries = await fetchE(`${BASE}/customers/${num}/entries?filter=remainder$ne:0&skippages=0&pagesize=200`, env);
       return json(out);
     }
 
